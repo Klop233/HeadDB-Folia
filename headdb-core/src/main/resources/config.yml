@@ -13,6 +13,40 @@ trackPage: true
 # If enabled shows the info item on how you can add heads to the database.-
 showInfoItem: true
 
+# Limits the maximum amount of heads you can buy at once. 2304 is a full inventory of 64 heads.
+# Note that extra heads that do not fit in the inventory are dropped when purchasing.
+maxBuyAmount: 2304
+
+# Head name and lore.
+head:
+  # Which lines of the lore should be removed when giving the head to a player.
+  # Example: [1,2,3,4,5]
+  omit: []
+  # Configure the name of the heads.
+  name:
+    # When there is no economy installed this is the name
+    default: "{name}"
+    # When economy is enabled below, this will be the name
+    economy: "{name}"
+  # Configure the lore of heads
+  lore:
+    # When there is no economy installed this is the lore
+    default:
+      - "<gray>ID: <red>{id}"
+      - "<gray>Category: <gold>{category}"
+      - "<gray>Tags: <gold>{tags}"
+      - " "
+      - "<gold><bold><key:key.attack> <reset><gray>» <green>Take"
+      - "<gold><bold><key:key.use> <reset><gray>» <green>Toggle favorite"
+    #  When economy is enabled below, this will be the lore
+    economy:
+      - "<gray>ID: <red>{id}"
+      - "<gray>Category: <gold>{category}"
+      - "<gray>Tags: <gold>{tags}"
+      - " "
+      - "<gold><bold><key:key.attack> <reset><gray>» <green>Open purchase menu"
+      - "<gold><bold><key:key.use> <gray>» <reset><green>Toggle favorite"
+
 economy:
   # Supported: VAULT
   provider: "NONE"

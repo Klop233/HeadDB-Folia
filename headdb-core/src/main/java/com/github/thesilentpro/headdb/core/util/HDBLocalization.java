@@ -4,6 +4,7 @@ import com.github.thesilentpro.headdb.core.HeadDB;
 import com.github.thesilentpro.localization.paper.PaperLoader;
 import com.github.thesilentpro.localization.paper.PaperLocalization;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.NotNull;
@@ -30,6 +31,10 @@ public class HDBLocalization extends PaperLocalization {
         if (entity == null) {
             throw new IllegalArgumentException("Invalid receiver with uuid: " + receiver.toString());
         } else {
+            TextComponent textMessage = (TextComponent) message;
+            if ((textMessage.content().isEmpty() || textMessage.content().isBlank()) && textMessage.children().isEmpty()) {
+                return;
+            }
             Compatibility.sendMessage(entity, message);
         }
     }

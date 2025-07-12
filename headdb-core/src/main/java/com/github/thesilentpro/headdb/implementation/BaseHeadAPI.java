@@ -4,7 +4,7 @@ package com.github.thesilentpro.headdb.implementation;
 import com.github.thesilentpro.headdb.api.HeadAPI;
 import com.github.thesilentpro.headdb.api.HeadDatabase;
 import com.github.thesilentpro.headdb.api.model.Head;
-import com.github.thesilentpro.headdb.core.util.Compatibility;
+import com.github.thesilentpro.headdb.core.factory.ItemFactoryRegistry;
 import com.github.thesilentpro.headdb.core.util.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -114,7 +114,7 @@ public class BaseHeadAPI implements HeadAPI {
         OfflinePlayer[] players = Bukkit.getOfflinePlayers();
         List<ItemStack> heads = new ArrayList<>();
         for (OfflinePlayer player : players) {
-            heads.add(Compatibility.asItem(player));
+            heads.add(ItemFactoryRegistry.get().asItem(player));
         }
         return heads;
     }
@@ -122,23 +122,8 @@ public class BaseHeadAPI implements HeadAPI {
     @NotNull
     @Override
     public Optional<ItemStack> computeLocalHead(UUID uniqueId) {
-        return Optional.of(Compatibility.asItem(Bukkit.getOfflinePlayer(uniqueId)));
+        return Optional.ofNullable(ItemFactoryRegistry.get().asItem(Bukkit.getOfflinePlayer(uniqueId)));
     }
-
-    /*
-    @Override
-    public CompletableFuture<Set<Head>> findFavoriteHeads(@NotNull UUID playerId, boolean withDate) {
-        return CompletableFuture.supplyAsync(() ->
-                HeadDB.getInstance().getPlayerDatabase().getOrCreate(playerId)
-                        .getFavorites().stream()
-                        .map(id -> findHeadById(id).join()
-                                .orElseGet(() -> withDate && HeadDB.getInstance().getCfg().isLocalHeadsEnabled()
-                                        ? computeLocalHead(playerId, true).join().orElse(null)
-                                        : null))
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet()), executor);
-    }
-    */
 
     @Override
     public @NotNull ExecutorService getExecutor() {

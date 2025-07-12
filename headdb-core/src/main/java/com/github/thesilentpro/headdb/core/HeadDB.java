@@ -8,15 +8,18 @@ import com.github.thesilentpro.headdb.api.model.Head;
 import com.github.thesilentpro.headdb.core.command.HDBMainCommand;
 import com.github.thesilentpro.headdb.core.command.HDBSubCommandManager;
 import com.github.thesilentpro.headdb.core.config.Config;
+import com.github.thesilentpro.headdb.core.config.ConfigManager;
+import com.github.thesilentpro.headdb.core.config.SoundConfig;
 import com.github.thesilentpro.headdb.core.economy.EconomyProvider;
 import com.github.thesilentpro.headdb.core.economy.VaultEconomyProvider;
+import com.github.thesilentpro.headdb.core.factory.ItemFactoryRegistry;
 import com.github.thesilentpro.headdb.core.menu.MenuManager;
 import com.github.thesilentpro.headdb.core.storage.PlayerStorage;
+import com.github.thesilentpro.headdb.core.util.Compatibility;
 import com.github.thesilentpro.headdb.core.util.HDBLocalization;
+import com.github.thesilentpro.headdb.core.util.Utils;
 import com.github.thesilentpro.headdb.implementation.BaseHeadAPI;
 import com.github.thesilentpro.headdb.implementation.BaseHeadDatabase;
-import com.github.thesilentpro.headdb.core.util.Compatibility;
-import com.github.thesilentpro.headdb.core.util.Utils;
 import com.github.thesilentpro.inputs.paper.PaperInputListener;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
@@ -34,7 +37,7 @@ public class HeadDB extends JavaPlugin {
     // Avoid using class for this logger: it will use the fully qualified name with the default logger cfg.
     private static final Logger LOGGER = LoggerFactory.getLogger("HeadDB");
 
-    private Config config;
+    private ConfigManager configManager;
     private HeadDatabase headDatabase;
     private HeadAPI headApi;
     private HDBSubCommandManager subCommandManager;
@@ -46,15 +49,20 @@ public class HeadDB extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        this.config = new Config(this);
-        this.config.load();
+
+        ItemFactoryRegistry.init(this);
+
+        this.configManager = new ConfigManager(this);
+        this.configManager.loadAll(this);
         this.localization = new HDBLocalization(this);
         this.localization.init();
-        String econProvider = this.config.getEconomyProvider();
+
+        Config config = this.configManager.getConfig();
+        String econProvider = config.getEconomyProvider();
         if (econProvider != null) {
             if (econProvider.equalsIgnoreCase("NONE") || econProvider.isEmpty()) {
                 LOGGER.debug("Economy is disabled.");
-            } else if (this.config.getEconomyProvider().equalsIgnoreCase("VAULT")) {
+            } else if (config.getEconomyProvider().equalsIgnoreCase("VAULT")) {
                 this.economyProvider = new VaultEconomyProvider();
                 this.economyProvider.init();
                 LOGGER.debug("Economy Provider: Vault");
@@ -64,15 +72,15 @@ public class HeadDB extends JavaPlugin {
         }
 
         // Init database
-        int databaseThreads = this.config.getDatabaseThreads();
-        this.headDatabase = new BaseHeadDatabase(Utils.executorService(databaseThreads, "Head Database Worker"), this.config.resolveEnabledIndexes());
-        this.headDatabase.update().thenAcceptAsync(heads -> DATABASE_UPDATE_ACTION.accept(this.config, heads), Compatibility.getMainThreadExecutor(this));
-        this.headApi = new BaseHeadAPI(this.config.getApiThreads(), headDatabase);
+        int databaseThreads = config.getDatabaseThreads();
+        this.headDatabase = new BaseHeadDatabase(Utils.executorService(databaseThreads, "Head Database Worker"), config.resolveEnabledIndexes());
+        this.headDatabase.update().thenAcceptAsync(heads -> DATABASE_UPDATE_ACTION.accept(config, heads), Compatibility.getMainThreadExecutor(this));
+        this.headApi = new BaseHeadAPI(config.getApiThreads(), headDatabase);
         this.menuManager = new MenuManager(this);
         this.headDatabase.onReady().thenRunAsync(() -> this.menuManager.registerDefaults(this));
         this.playerStorage = new PlayerStorage();
         this.playerStorage.load();
-        this.getServer().getScheduler().runTaskTimerAsynchronously(this, () -> this.playerStorage.save(), this.config.getPlayerStorageSaveInterval() * 20L, this.config.getPlayerStorageSaveInterval() * 20L);
+        this.getServer().getScheduler().runTaskTimerAsynchronously(this, () -> this.playerStorage.save(), config.getPlayerStorageSaveInterval() * 20L, config.getPlayerStorageSaveInterval() * 20L);
 
         getServer().getServicesManager().register(HeadAPI.class, headApi, this, ServicePriority.Normal);
 
@@ -93,8 +101,8 @@ public class HeadDB extends JavaPlugin {
         new PaperInputListener().register(this);
 
         // Start updater task
-        if (this.config.isUpdaterEnabled()) {
-            this.getServer().getScheduler().runTaskTimerAsynchronously(this, () -> this.headDatabase.update().thenAccept(heads -> DATABASE_UPDATE_ACTION.accept(this.config, heads)), 86400L * 20L, 86400L * 20L);
+        if (config.isUpdaterEnabled()) {
+            this.getServer().getScheduler().runTaskTimerAsynchronously(this, () -> this.headDatabase.update().thenAccept(heads -> DATABASE_UPDATE_ACTION.accept(config, heads)), 86400L * 20L, 86400L * 20L);
         }
 
         if (!Compatibility.IS_PAPER) {
@@ -110,6 +118,7 @@ public class HeadDB extends JavaPlugin {
                     """, bukkitName + " " + bukkitVersion);
         }
 
+        new Metrics(this, 9152);
         LOGGER.info("Done! Database is {}", !this.headDatabase.isReady() ? "loading..." : "ready");
     }
 
@@ -141,8 +150,12 @@ public class HeadDB extends JavaPlugin {
         return subCommandManager;
     }
 
+    public SoundConfig getSoundConfig() {
+        return this.configManager.getSoundConfig();
+    }
+
     public Config getCfg() {
-        return config;
+        return this.configManager.getConfig();
     }
 
     public HeadAPI getHeadApi() {

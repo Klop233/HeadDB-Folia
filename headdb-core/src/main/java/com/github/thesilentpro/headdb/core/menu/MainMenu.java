@@ -7,8 +7,8 @@ import com.github.thesilentpro.grim.page.SimplePage;
 import com.github.thesilentpro.headdb.api.model.Head;
 import com.github.thesilentpro.headdb.core.HeadDB;
 import com.github.thesilentpro.headdb.core.menu.gui.CustomCategoriesGUI;
+import com.github.thesilentpro.headdb.core.menu.gui.FavoritesHeadsGUI;
 import com.github.thesilentpro.headdb.core.menu.gui.HeadsGUI;
-import com.github.thesilentpro.headdb.core.menu.gui.HybridHeadsGUI;
 import com.github.thesilentpro.headdb.core.menu.gui.LocalHeadsGUI;
 import com.github.thesilentpro.headdb.core.storage.PlayerData;
 import com.github.thesilentpro.headdb.core.util.Compatibility;
@@ -17,7 +17,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.slf4j.Logger;
@@ -29,268 +28,230 @@ import java.util.concurrent.CompletableFuture;
 public class MainMenu extends SimplePage {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MainMenu.class);
-
-    private final int[] ignoredSlots = new int[]{11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 29, 30, 31, 32, 33};
+    private static final int[] CATEGORY_SLOTS = {11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 29, 30, 31, 32, 33};
 
     public MainMenu(HeadDB plugin) {
-        super(plugin.getLocalization().getConsoleMessage("menu.main.name").orElseGet(() -> Component.text("HeadDB").color(NamedTextColor.RED)), 6);
+        super(plugin.getLocalization().getConsoleMessage("menu.main.name").orElse(Component.text("HeadDB").color(NamedTextColor.RED)), 6);
         preventInteraction();
 
-        // Wait for database to update then setup menu
-        plugin.getHeadApi().onReady().thenAcceptAsync(heads -> {
-            // Preferred category order
-            List<String> preferredOrder = List.of(
-                    "Alphabet",
-                    "Animals",
-                    "Blocks",
-                    "Decoration",
-                    "Food & Drinks",
-                    "Humanoid",
-                    "Humans",
-                    "Miscellaneous",
-                    "Monsters",
-                    "Plants"
-            );
-
-            // Index a sample head per category
-            Map<String, Head> headByCategory = new HashMap<>();
-            for (Head head : heads) {
-                headByCategory.putIfAbsent(head.getCategory(), head);
-            }
-
-            List<String> orderedCategories = new ArrayList<>(preferredOrder.size() + headByCategory.size());
-            Set<String> seen = new HashSet<>();
-
-            // Add preferred categories (if available)
-            for (String preferred : preferredOrder) {
-                if (headByCategory.containsKey(preferred)) {
-                    orderedCategories.add(preferred);
-                    seen.add(preferred);
-                }
-            }
-
-            // Add remaining categories not in preferred list
-            for (String category : headByCategory.keySet()) {
-                if (seen.add(category)) { // Set#add returns false if already added
-                    orderedCategories.add(category);
-                }
-            }
-
-            // add buttons
-            int i = 0;
-            for (String category : orderedCategories) {
-                if (i >= ignoredSlots.length) {
-                    break;
-                }
-
-                Head head = headByCategory.get(category);
-                if (head == null) {
-                    continue;
-                }
-
-                ItemStack item = Compatibility.setItemDetails(head.getItem(), plugin.getLocalization().getConsoleMessage("menu.main.category." + category.toLowerCase(Locale.ROOT) + ".name").orElseGet(() -> Component.text(category).color(NamedTextColor.GOLD)), Component.text(""));
-                int slot = ignoredSlots[i++];
-                setButton(slot, new SimpleButton(item, ctx -> {
-                    if (!ctx.event().getWhoClicked().hasPermission("headdb.category." + category)) {
-                        plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "noPermission");
-                        return;
-                    }
-
-                    HeadsGUI categoryGui = plugin.getMenuManager().get(category.replace(" ", "_").replace("&", "_"));
-                    int pageIndex = 0;
-                    if (plugin.getCfg().isTrackPage()) {
-                        pageIndex = categoryGui.getGuiRegistry().getCurrentPage(ctx.event().getWhoClicked().getUniqueId(), categoryGui.getKey()).orElse(0);
-                    }
-                    categoryGui.open((Player) ctx.event().getWhoClicked(), pageIndex);
-                }));
-            }
-
-            // Local heads
-            ItemStack localItem = plugin.getHeadApi()
-                    .findByTexture("7f6bf958abd78295eed6ffc293b1aa59526e80f54976829ea068337c2f5e8")
-                    .join()
-                    .map(head -> Compatibility.setItemDetails(head.getItem(), plugin.getLocalization().getConsoleMessage("menu.main.local.name")
-                            .orElseGet(() -> Component.text("Local Heads").color(NamedTextColor.AQUA)), Component.text("")))
-                    .orElseGet(() -> Compatibility.newItem(Material.COMPASS, plugin.getLocalization().getConsoleMessage("menu.main.local.name")
-                            .orElseGet(() -> Component.text("Local Heads").color(NamedTextColor.AQUA)), Component.text(""))
-                    );
-            setButton(41, new SimpleButton(localItem, ctx -> {
-                if (!ctx.event().getWhoClicked().hasPermission("headdb.category.local")) {
-                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "noPermission");
-                    return;
-                }
-
-                List<ItemStack> localItems = plugin.getHeadApi().computeLocalHeads();
-                if (localItems.isEmpty()) {
-                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "localNone");
-                    return;
-                }
-
-                LocalHeadsGUI localGui = new LocalHeadsGUI(plugin, "local_" + ctx.event().getWhoClicked().getUniqueId().toString(), plugin.getLocalization().getConsoleMessage("menu.local.name").orElseGet(() -> Component.text("HeadDB » Local").color(NamedTextColor.GOLD)), localItems);
-                int pageIndex = 0;
-                if (plugin.getCfg().isTrackPage()) {
-                    pageIndex = localGui.getGuiRegistry().getCurrentPage(ctx.event().getWhoClicked().getUniqueId(), localGui.getKey()).orElse(0);
-                }
-                localGui.open((Player) ctx.event().getWhoClicked(), pageIndex);
-            }));
-
-            // Info item
-            if (plugin.getCfg().isShowInfoItem()) {
-                Component[] infoLore = new Component[]{
-                        Component.text("❓ Didn't spot the perfect head in our collection?")
-                                .decoration(TextDecoration.ITALIC, false)
-                                .color(NamedTextColor.YELLOW),
-                        Component.text("🎯 We're always adding more — and you can help!")
-                                .decoration(TextDecoration.ITALIC, false)
-                                .color(NamedTextColor.YELLOW),
-                        Component.text(""),
-                        Component.text("📥 Submit your favorite or original heads")
-                                .decoration(TextDecoration.ITALIC, false)
-                                .color(NamedTextColor.YELLOW),
-                        Component.text("✨ Directly through our community Discord!")
-                                .decoration(TextDecoration.ITALIC, false)
-                                .color(NamedTextColor.YELLOW),
-                        Component.text(""),
-                        Component.text("🔗 Discord > https://discord.gg/RJsVvVd")
-                                .decoration(TextDecoration.ITALIC, false)
-                                .color(NamedTextColor.YELLOW)
-                };
-                ItemStack infoItem = plugin.getHeadApi()
-                        .findByTexture("16439d2e306b225516aa9a6d007a7e75edd2d5015d113b42f44be62a517e574f")
-                        .join()
-                        .map(head -> Compatibility.setItemDetails(head.getItem(), Component.text("Can't find the head you're looking for?").color(NamedTextColor.RED), infoLore))
-                        .orElseGet(() -> Compatibility.newItem(Material.BOOK, Component.text("Can't find the head you're looking for?").color(NamedTextColor.RED), infoLore));
-                setButton(53, new SimpleButton(infoItem, ctx -> {
-                    Compatibility.sendMessage(ctx.event().getWhoClicked(), Component.text("Click to join: https://discord.gg/RJsVvVd").color(NamedTextColor.AQUA));
-                }));
-            }
-
-            // Favorites
-            ItemStack favoritesItem = plugin.getHeadApi()
-                    .findByTexture("76fdd4b13d54f6c91dd5fa765ec93dd9458b19f8aa34eeb5c80f455b119f278")
-                    .join()
-                    .map(head -> Compatibility.setItemDetails(head.getItem(), plugin.getLocalization().getConsoleMessage("menu.main.favorites.name")
-                            .orElseGet(() -> Component.text("Favorites").color(NamedTextColor.YELLOW)), Component.text("")))
-                    .orElseGet(() -> Compatibility.newItem(Material.BOOK, plugin.getLocalization().getConsoleMessage("menu.main.favorites.name")
-                            .orElseGet(() -> Component.text("Favorites").color(NamedTextColor.YELLOW)), Component.text(""))
-                    );
-            setButton(42, new SimpleButton(favoritesItem, ctx -> {
-                if (!ctx.event().getWhoClicked().hasPermission("headdb.category.favorites")) {
-                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "noPermission");
-                    return;
-                }
-
-                UUID playerId = ctx.event().getWhoClicked().getUniqueId();
-                PlayerData playerData = plugin.getPlayerStorage().getPlayer(playerId);
-
-                List<Integer> favoriteIds = playerData.getFavorites();
-                List<UUID> localFavoriteUUIDs = playerData.getLocalFavorites();
-
-                // 1. Load official HeadDB heads
-                List<CompletableFuture<Optional<Head>>> officialFutures = favoriteIds.stream()
-                        .map(id -> plugin.getHeadApi().findById(id))
-                        .toList();
-
-                // 2. Convert local favorites (UUIDs) into ItemStacks
-                List<ItemStack> localItems = localFavoriteUUIDs.stream()
-                        .map(plugin.getHeadApi()::computeLocalHead)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .toList();
-
-                // 3. Combine futures
-                CompletableFuture
-                        .allOf(officialFutures.toArray(new CompletableFuture[0]))
-                        .thenApply(v ->
-                                officialFutures.stream()
-                                        .map(CompletableFuture::join)
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .toList()
-                        )
-                        .thenAcceptAsync(favoriteHeads -> {
-                            if (favoriteHeads.isEmpty() && localItems.isEmpty()) {
-                                plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "favoritesNone");
-                                return;
-                            }
-
-                            HybridHeadsGUI favoritesGui = new HybridHeadsGUI(plugin, "favorites_" + playerId.toString(), plugin.getLocalization().getConsoleMessage("menu.favorites.name").orElseGet(() -> Component.text("HeadDB » Favorites").color(NamedTextColor.GOLD)), favoriteHeads, localItems);
-                            int pageIndex = 0;
-                            if (plugin.getCfg().isTrackPage()) {
-                                pageIndex = favoritesGui.getGuiRegistry().getCurrentPage(playerId, favoritesGui.getKey()).orElse(0);
-                            }
-                            favoritesGui.open((Player) ctx.event().getWhoClicked(), pageIndex);
-                        }, Compatibility.getMainThreadExecutor(plugin))
-                        .exceptionally(ex -> {
-                            LOGGER.error("Failed to compute favorite heads for: {}", playerId, ex);
-                            return null;
-                        });
-            }));
-
-            // Custom categories
-            ItemStack customCategoriesItem = plugin.getHeadApi()
-                    .findByTexture(plugin.getCfg().getCustomCategoryTexture())
-                    .join()
-                    .map(head -> Compatibility.setItemDetails(head.getItem(), plugin.getLocalization().getConsoleMessage("menu.main.customCategories.name")
-                            .orElseGet(() -> Component.text("More Categories").color(NamedTextColor.DARK_PURPLE)), Component.text("")))
-                    .orElseGet(() -> Compatibility.newItem(plugin.getCfg().getCustomCategoryItem(), plugin.getLocalization().getConsoleMessage("menu.main.customCategories.name")
-                            .orElseGet(() -> Component.text("More Categories").color(NamedTextColor.DARK_PURPLE)), Component.text(""))
-                    );
-
-            setButton(38, new SimpleButton(customCategoriesItem, ctx -> {
-                if (!ctx.event().getWhoClicked().hasPermission("headdb.category.custom")) {
-                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "noPermission");
-                    return;
-                }
-
-                CustomCategoriesGUI customCategoriesGui = plugin.getMenuManager().getCustomCategoriesGui();
-                if (customCategoriesGui.getPages().isEmpty()) {
-                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "customCategoriesNone");
-                    return;
-                }
-                int pageIndex = 0;
-                if (plugin.getCfg().isTrackPage()) {
-                    pageIndex = customCategoriesGui.getGuiRegistry().getCurrentPage(ctx.event().getWhoClicked().getUniqueId(), customCategoriesGui.getKey()).orElse(0);
-                }
-                customCategoriesGui.open((Player) ctx.event().getWhoClicked(), pageIndex);
-            }));
-
-            // Custom categories
-            ItemStack searchItem = plugin.getHeadApi()
-                    .findByTexture(plugin.getCfg().getSearchTexture())
-                    .join()
-                    .map(head -> Compatibility.setItemDetails(head.getItem(), plugin.getLocalization().getConsoleMessage("menu.main.search.name")
-                            .orElseGet(() -> Component.text("Search").color(NamedTextColor.DARK_PURPLE)), Component.text("")))
-                    .orElseGet(() -> Compatibility.newItem(plugin.getCfg().getSearchItem(), plugin.getLocalization().getConsoleMessage("menu.main.search.name")
-                            .orElseGet(() -> Component.text("Search").color(NamedTextColor.GREEN)), Component.text(""))
-                    );
-            setButton(39, new SimpleButton(searchItem, ctx -> {
-                if (!Compatibility.IS_PAPER) {
-                    return; // Currently unsupposed, requires inputs to be updated for spigot support
-                }
-
-                HumanEntity entity = ctx.event().getWhoClicked();
-                entity.closeInventory();
-                plugin.getLocalization().sendMessage(entity, "command.search.input");
-                PaperInput.awaitString()
-                        .then((input, event) -> {
-                            event.setCancelled(true);
-                            Compatibility.getMainThreadExecutor(plugin).execute(() -> ((Player) entity).performCommand("hdb search " + input));
-                        }).register(entity.getUniqueId());
-            }));
-
-            fill(this, new SimpleButton(Compatibility.newItem(Material.BLACK_STAINED_GLASS_PANE, Component.text(""))));
+        plugin.getHeadApi().onReady().thenAccept(heads -> {
+            LOGGER.debug("RENDER THREAD = {}", Thread.currentThread().getName());
+            renderCategoryButtons(plugin, heads);
+            renderLocalButton(plugin);
+            renderFavoritesButton(plugin);
+            renderCustomCategoriesButton(plugin);
+            renderSearchButton(plugin);
+            renderInfoButton(plugin);
+            fillBorder(this);
             reRender();
-        }, Compatibility.getMainThreadExecutor(plugin));
-
+        });
     }
 
-    private static void fill(Page page, Button button) {
+    private void renderCategoryButtons(HeadDB plugin, List<Head> heads) {
+        List<String> preferredOrder = List.of("Alphabet", "Animals", "Blocks", "Decoration", "Food & Drinks", "Humanoid", "Humans", "Miscellaneous", "Monsters", "Plants");
+
+        Map<String, Head> headByCategory = new HashMap<>();
+        for (Head head : heads) {
+            headByCategory.putIfAbsent(head.getCategory(), head);
+        }
+
+        List<String> orderedCategories = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        preferredOrder.stream().filter(headByCategory::containsKey).forEach(cat -> {
+            orderedCategories.add(cat);
+            seen.add(cat);
+        });
+        headByCategory.keySet().stream().filter(seen::add).forEach(orderedCategories::add);
+
+        for (int i = 0; i < Math.min(CATEGORY_SLOTS.length, orderedCategories.size()); i++) {
+            String category = orderedCategories.get(i);
+            Head head = headByCategory.get(category);
+            if (head == null) {
+                continue;
+            }
+
+            Component name = plugin.getLocalization().getConsoleMessage("menu.main.category." + category.toLowerCase(Locale.ROOT) + ".name")
+                    .orElse(Component.text(category).color(NamedTextColor.GOLD));
+            ItemStack item = Compatibility.setItemDetails(head.getItem(), name, Component.text(""));
+
+            setButton(CATEGORY_SLOTS[i], new SimpleButton(item, ctx -> {
+                Player player = (Player) ctx.event().getWhoClicked();
+                if (!player.hasPermission("headdb.category." + category)) {
+                    plugin.getLocalization().sendMessage(player, "noPermission");
+                    Compatibility.playSound(player, plugin.getSoundConfig().get("noPermission"));
+                    return;
+                }
+
+                HeadsGUI gui = plugin.getMenuManager().get(category.replace(" ", "_").replace("&", "_"));
+                int page = plugin.getCfg().isTrackPage() ? gui.getGuiRegistry().getCurrentPage(player.getUniqueId(), gui.getKey()).orElse(0) : 0;
+                gui.open(player, page);
+                Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
+            }));
+        }
+    }
+
+    private void renderLocalButton(HeadDB plugin) {
+        ItemStack item = plugin.getHeadApi()
+                .findByTexture("7f6bf958abd78295eed6ffc293b1aa59526e80f54976829ea068337c2f5e8")
+                .join()
+                .map(head -> Compatibility.setItemDetails(head.getItem(), getMsg(plugin, "menu.main.local.name", "Local Heads", NamedTextColor.AQUA), Component.text("")))
+                .orElse(Compatibility.newItem(Material.COMPASS, getMsg(plugin, "menu.main.local.name", "Local Heads", NamedTextColor.AQUA), Component.text("")));
+
+        setButton(41, new SimpleButton(item, ctx -> {
+            Player player = (Player) ctx.event().getWhoClicked();
+            if (!player.hasPermission("headdb.category.local")) {
+                plugin.getLocalization().sendMessage(player, "noPermission");
+                Compatibility.playSound(player, plugin.getSoundConfig().get("noPermission"));
+                return;
+            }
+
+            List<ItemStack> localHeads = plugin.getHeadApi().computeLocalHeads();
+            if (localHeads.isEmpty()) {
+                plugin.getLocalization().sendMessage(player, "localNone");
+                Compatibility.playSound(player, plugin.getSoundConfig().get("menu.none"));
+                return;
+            }
+
+            LocalHeadsGUI gui = new LocalHeadsGUI(plugin, "local_" + player.getUniqueId(), getMsg(plugin, "menu.local.name", "HeadDB » Local", NamedTextColor.GOLD), localHeads);
+            int page = plugin.getCfg().isTrackPage() ? gui.getGuiRegistry().getCurrentPage(player.getUniqueId(), gui.getKey()).orElse(0) : 0;
+            gui.open(player, page);
+            Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
+        }));
+    }
+
+    private void renderFavoritesButton(HeadDB plugin) {
+        ItemStack item = plugin.getHeadApi()
+                .findByTexture("76fdd4b13d54f6c91dd5fa765ec93dd9458b19f8aa34eeb5c80f455b119f278")
+                .join()
+                .map(head -> Compatibility.setItemDetails(head.getItem(), getMsg(plugin, "menu.main.favorites.name", "Favorites", NamedTextColor.YELLOW), Component.text("")))
+                .orElse(Compatibility.newItem(Material.BOOK, getMsg(plugin, "menu.main.favorites.name", "Favorites", NamedTextColor.YELLOW), Component.text("")));
+
+        setButton(42, new SimpleButton(item, ctx -> {
+            Player player = (Player) ctx.event().getWhoClicked();
+            if (!player.hasPermission("headdb.category.favorites")) {
+                plugin.getLocalization().sendMessage(player, "noPermission");
+                Compatibility.playSound(player, plugin.getSoundConfig().get("noPermission"));
+                return;
+            }
+
+            UUID playerId = player.getUniqueId();
+            PlayerData data = plugin.getPlayerStorage().getPlayer(playerId);
+            List<CompletableFuture<Optional<Head>>> futures = data.getFavorites().stream()
+                    .map(plugin.getHeadApi()::findById)
+                    .toList();
+
+            List<ItemStack> localItems = data.getLocalFavorites().stream()
+                    .map(plugin.getHeadApi()::computeLocalHead)
+                    .filter(Optional::isPresent).map(Optional::get).toList();
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .thenApply(v -> futures.stream().map(CompletableFuture::join)
+                            .filter(Optional::isPresent).map(Optional::get).toList())
+                    .thenAcceptAsync(favoriteHeads -> {
+                        if (favoriteHeads.isEmpty() && localItems.isEmpty()) {
+                            plugin.getLocalization().sendMessage(player, "favoritesNone");
+                            Compatibility.playSound(player, plugin.getSoundConfig().get("menu.none"));
+                            return;
+                        }
+                        FavoritesHeadsGUI gui = new FavoritesHeadsGUI(plugin, "favorites_" + playerId, getMsg(plugin, "menu.favorites.name", "HeadDB » Favorites", NamedTextColor.GOLD), favoriteHeads, localItems);
+                        int page = plugin.getCfg().isTrackPage() ? gui.getGuiRegistry().getCurrentPage(playerId, gui.getKey()).orElse(0) : 0;
+                        gui.open(player, page);
+                        Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
+                    }, Compatibility.getMainThreadExecutor(plugin))
+                    .exceptionally(ex -> {
+                        LOGGER.error("Failed to compute favorite heads for: {}", playerId, ex);
+                        return null;
+                    });
+        }));
+    }
+
+    private void renderCustomCategoriesButton(HeadDB plugin) {
+        ItemStack item = plugin.getHeadApi().findByTexture(plugin.getCfg().getCustomCategoryTexture()).join()
+                .map(head -> Compatibility.setItemDetails(head.getItem(), getMsg(plugin, "menu.main.customCategories.name", "More Categories", NamedTextColor.DARK_PURPLE), Component.text("")))
+                .orElse(Compatibility.newItem(plugin.getCfg().getCustomCategoryItem(), getMsg(plugin, "menu.main.customCategories.name", "More Categories", NamedTextColor.DARK_PURPLE), Component.text("")));
+
+        setButton(38, new SimpleButton(item, ctx -> {
+            Player player = (Player) ctx.event().getWhoClicked();
+            if (!player.hasPermission("headdb.category.custom")) {
+                plugin.getLocalization().sendMessage(player, "noPermission");
+                Compatibility.playSound(player, plugin.getSoundConfig().get("noPermission"));
+                return;
+            }
+
+            CustomCategoriesGUI gui = plugin.getMenuManager().getCustomCategoriesGui();
+            if (gui.getPages().isEmpty()) {
+                plugin.getLocalization().sendMessage(player, "customCategoriesNone");
+                Compatibility.playSound(player, plugin.getSoundConfig().get("menu.none"));
+                return;
+            }
+
+            int page = plugin.getCfg().isTrackPage() ?
+                    gui.getGuiRegistry().getCurrentPage(player.getUniqueId(), gui.getKey()).orElse(0) : 0;
+            gui.open(player, page);
+            Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
+        }));
+    }
+
+    private void renderSearchButton(HeadDB plugin) {
+        ItemStack item = plugin.getHeadApi().findByTexture(plugin.getCfg().getSearchTexture()).join()
+                .map(head -> Compatibility.setItemDetails(head.getItem(), getMsg(plugin, "menu.main.search.name", "Search", NamedTextColor.GREEN), Component.text("")))
+                .orElse(Compatibility.newItem(plugin.getCfg().getSearchItem(), getMsg(plugin, "menu.main.search.name", "Search", NamedTextColor.GREEN), Component.text("")));
+
+        setButton(39, new SimpleButton(item, ctx -> {
+            if (!ctx.event().getWhoClicked().hasPermission("headdb.command.search")) {
+                plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "noPermission");
+                Compatibility.playSound(ctx.event().getWhoClicked(), plugin.getSoundConfig().get("noPermission"));
+                return;
+            }
+            if (!Compatibility.IS_PAPER) {
+                return;
+            }
+
+            Player player = (Player) ctx.event().getWhoClicked();
+            player.closeInventory();
+            plugin.getLocalization().sendMessage(player, "command.search.input");
+            Compatibility.playSound(player, plugin.getSoundConfig().get("input.wait"));
+            PaperInput.awaitString().then((input, event) -> {
+                event.setCancelled(true);
+                Compatibility.getMainThreadExecutor(plugin).execute(() -> player.performCommand("hdb search " + input));
+            }).register(player.getUniqueId());
+        }));
+    }
+
+    private void renderInfoButton(HeadDB plugin) {
+        if (!plugin.getCfg().isShowInfoItem()) {
+            return;
+        }
+
+        Component[] lore = new Component[]{
+                Component.text("❓ Didn't spot the perfect head in our collection?").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false),
+                Component.text("🎯 We're always adding more — and you can help!").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false),
+                Component.text(""),
+                Component.text("📥 Submit your favorite or original heads").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false),
+                Component.text("✨ Directly through our community Discord!").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false),
+                Component.text(""),
+                Component.text("🔗 Discord > https://discord.gg/RJsVvVd").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)
+        };
+
+        ItemStack item = plugin.getHeadApi()
+                .findByTexture("16439d2e306b225516aa9a6d007a7e75edd2d5015d113b42f44be62a517e574f")
+                .join()
+                .map(head -> Compatibility.setItemDetails(head.getItem(), Component.text("Can't find the head you're looking for?").color(NamedTextColor.RED), lore))
+                .orElse(Compatibility.newItem(Material.BOOK, Component.text("Can't find the head you're looking for?").color(NamedTextColor.RED), lore));
+
+        setButton(53, new SimpleButton(item, ctx -> Compatibility.sendMessage(ctx.event().getWhoClicked(), Component.text("Click to join: https://discord.gg/RJsVvVd").color(NamedTextColor.AQUA))));
+    }
+
+    private void fillBorder(Page page) {
+        Button filler = new SimpleButton(Compatibility.newItem(Material.BLACK_STAINED_GLASS_PANE, Component.text("")));
         for (int i = 0; i < page.getSize(); i++) {
             if (page.getButton(i).isEmpty()) {
-                page.setButton(i, button);
+                page.setButton(i, filler);
             }
         }
     }
 
+    private Component getMsg(HeadDB plugin, String key, String fallback, NamedTextColor color) {
+        return plugin.getLocalization().getConsoleMessage(key).orElse(Component.text(fallback).color(color));
+    }
 }

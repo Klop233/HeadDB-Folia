@@ -1,6 +1,7 @@
 package com.github.thesilentpro.headdb.core.command;
 
 import com.github.thesilentpro.headdb.core.HeadDB;
+import com.github.thesilentpro.headdb.core.util.Compatibility;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -31,9 +32,11 @@ public class HDBMainCommand implements CommandExecutor, TabCompleter {
             }
             if (!(sender.hasPermission("headdb.command.open"))) {
                 plugin.getLocalization().sendMessage(sender, "noPermission");
+                Compatibility.playSound(player, plugin.getSoundConfig().get("noPermission"));
                 return true;
             }
             plugin.getMenuManager().getMainMenu().open(player);
+            Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
             plugin.getLocalization().sendMessage(sender, "command.open.opening", msg -> msg.replaceText(builder -> builder.matchLiteral("{category}").replacement("Main")));
             return true;
         }
@@ -47,6 +50,7 @@ public class HDBMainCommand implements CommandExecutor, TabCompleter {
 
         if (!sender.hasPermission("headdb.command." + subCommand.getName())) {
             plugin.getLocalization().sendMessage(sender, "noPermission");
+            Compatibility.playSound(sender, plugin.getSoundConfig().get("noPermission"));
             return true;
         }
 
@@ -81,10 +85,10 @@ public class HDBMainCommand implements CommandExecutor, TabCompleter {
 
         HDBSubCommand subCommand = plugin.getSubCommandManager().get(args[0]);
         if (subCommand == null) {
-            return INVALID_SUB_COMMAND_COMPLETION; // no permission
+            return INVALID_SUB_COMMAND_COMPLETION;
         }
 
-        if (!sender.hasPermission("headdb.command." + subCommand.getName())) {// no permission
+        if (!sender.hasPermission("headdb.command." + subCommand.getName())) {
             return null; // no permission
         }
 

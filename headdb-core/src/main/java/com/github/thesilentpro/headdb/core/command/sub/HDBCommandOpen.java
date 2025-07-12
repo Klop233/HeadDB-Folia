@@ -3,6 +3,7 @@ package com.github.thesilentpro.headdb.core.command.sub;
 import com.github.thesilentpro.headdb.core.HeadDB;
 import com.github.thesilentpro.headdb.core.command.HDBSubCommand;
 import com.github.thesilentpro.headdb.core.menu.gui.HeadsGUI;
+import com.github.thesilentpro.headdb.core.util.Compatibility;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
@@ -30,6 +31,7 @@ public class HDBCommandOpen extends HDBSubCommand {
         if (args.length == 1) {
             this.plugin.getMenuManager().getMainMenu().open(player);
             plugin.getLocalization().sendMessage(sender, "command.open.opening", msg -> msg.replaceText(builder -> builder.matchLiteral("{category}").replacement("Main")));
+            Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
             return;
         }
 
@@ -37,6 +39,7 @@ public class HDBCommandOpen extends HDBSubCommand {
         HeadsGUI categoryGui = plugin.getMenuManager().get(category.replace(" ", "_").replace("&", "_"));
         if (categoryGui == null) {
             plugin.getLocalization().sendMessage(sender, "command.open.invalidCategory", msg -> msg.replaceText(builder -> builder.matchLiteral("{category}").replacement(category)));
+            Compatibility.playSound(player, plugin.getSoundConfig().get("failed"));
             return;
         }
 
@@ -46,6 +49,7 @@ public class HDBCommandOpen extends HDBSubCommand {
         }
         categoryGui.open(player, pageIndex);
         plugin.getLocalization().sendMessage(sender, "command.open.opening", msg -> msg.replaceText(builder -> builder.matchLiteral("{category}").replacement(category)));
+        Compatibility.playSound(player, plugin.getSoundConfig().get("menu.open"));
     }
 
     @Override

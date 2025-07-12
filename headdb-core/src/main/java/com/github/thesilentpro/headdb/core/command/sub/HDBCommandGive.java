@@ -32,6 +32,7 @@ public class HDBCommandGive extends HDBSubCommand {
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
             plugin.getLocalization().sendMessage(sender, "invalidTarget", msg -> msg.replaceText(builder -> builder.matchLiteral("{target}").replacement(args[1])));
+            Compatibility.playSound(sender, plugin.getSoundConfig().get("failed"));
             return;
         }
 
@@ -40,6 +41,7 @@ public class HDBCommandGive extends HDBSubCommand {
             amount = Integer.parseInt(args[2]);
         } catch (NumberFormatException nfe) {
             plugin.getLocalization().sendMessage(sender, "invalidNumber", msg -> msg.replaceText(builder -> builder.matchLiteral("{number}").replacement(args[2])));
+            Compatibility.playSound(sender, plugin.getSoundConfig().get("failed"));
         }
 
         final int fAmount = amount;
@@ -62,6 +64,7 @@ public class HDBCommandGive extends HDBSubCommand {
                 .thenAcceptAsync(head -> {
                     if (head == null) {
                         plugin.getLocalization().sendMessage(sender, "command.give.invalidId", msg -> msg.replaceText(builder -> builder.matchLiteral("{id}").replacement(id)));
+                        Compatibility.playSound(sender, plugin.getSoundConfig().get("failed"));
                         return;
                     }
                     ItemStack item = Compatibility.setItemDetails(head.getItem(), Component.text(head.getName()));
@@ -72,6 +75,7 @@ public class HDBCommandGive extends HDBSubCommand {
                             .replaceText(builder -> builder.matchLiteral("{name}").replacement(head.getName()))
                             .replaceText(builder -> builder.matchLiteral("{target}").replacement(target.getName()))
                     );
+                    Compatibility.playSound(sender, plugin.getSoundConfig().get("success"));
                 }, Compatibility.getMainThreadExecutor(plugin));
     }
 

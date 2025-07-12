@@ -1,7 +1,7 @@
 package com.github.thesilentpro.headdb.implementation.model;
 
 import com.github.thesilentpro.headdb.api.model.Head;
-import com.github.thesilentpro.headdb.core.util.Compatibility;
+import com.github.thesilentpro.headdb.core.factory.ItemFactoryRegistry;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -26,7 +26,7 @@ public class BaseHead implements Head {
     @Override
     public ItemStack getItem() {
         if (this.item == null) {
-            this.item = Compatibility.asItem(this);
+            this.item = ItemFactoryRegistry.get().asItem(this);
         }
         return this.item.clone(); // Returns a clone of the original to avoid modifying it.
     }

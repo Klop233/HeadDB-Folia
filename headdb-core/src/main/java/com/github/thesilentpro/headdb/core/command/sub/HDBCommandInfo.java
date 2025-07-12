@@ -40,7 +40,7 @@ public class HDBCommandInfo extends HDBSubCommand {
 
         // Build the colored & emoji-rich message
         Component message = Component.text()
-                .append(Component.text("⚙ Running ").color(NamedTextColor.GRAY))
+                .append(Component.text("Running ").color(NamedTextColor.GRAY))
                 .append(Component.text("HeadDB " + Compatibility.getPluginVersion(plugin)).color(NamedTextColor.GOLD))
                 .appendNewline()
                 .append(Component.text(" OS: ").color(NamedTextColor.GRAY))

@@ -149,10 +149,16 @@ public class CustomCategoriesGUI extends PaginatedGUI {
                 ));
 
         setControls(
-                new SimpleButton(backItem),
-                new SimpleButton(pageInfoItem, ctx -> plugin.getMenuManager().getMainMenu()
-                        .open((Player) ctx.event().getWhoClicked())),
-                new SimpleButton(nextItem),
+                new SimpleButton(backItem, ctx -> {
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("control.back"));
+                }),
+                new SimpleButton(pageInfoItem, ctx -> {
+                    plugin.getMenuManager().getMainMenu().open((Player) ctx.event().getWhoClicked());
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("control.info"));
+                }),
+                new SimpleButton(nextItem, ctx -> {
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("control.next"));
+                }),
                 true
         );
 

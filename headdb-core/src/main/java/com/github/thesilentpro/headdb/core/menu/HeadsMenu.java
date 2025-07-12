@@ -5,7 +5,9 @@ import com.github.thesilentpro.grim.gui.GUI;
 import com.github.thesilentpro.grim.page.PaginatedSimplePage;
 import com.github.thesilentpro.headdb.api.model.Head;
 import com.github.thesilentpro.headdb.core.HeadDB;
+import com.github.thesilentpro.headdb.core.factory.ItemFactoryRegistry;
 import com.github.thesilentpro.headdb.core.storage.PlayerData;
+import com.github.thesilentpro.headdb.core.util.Compatibility;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -30,25 +32,23 @@ public class HeadsMenu extends PaginatedSimplePage {
                     if (playerData.getFavorites().contains(head.getId())) {
                         playerData.removeFavorite(head.getId());
                         plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "menu.favorites.remove", msg -> msg.replaceText(builder -> builder.matchLiteral("{name}").replacement(head.getName())));
+                        Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("favorite.remove"));
                     } else {
                         playerData.addFavorite(head.getId());
                         plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "menu.favorites.add", msg -> msg.replaceText(builder -> builder.matchLiteral("{name}").replacement(head.getName())));
+                        Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("favorite.add"));
                     }
                     return;
                 }
 
                 if (plugin.getEconomyProvider() != null) {
                     new PurchaseHeadMenu(plugin, player, head, this).open(player);
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("menu.open"));
                 } else {
                     ItemStack item = head.getItem();
-                    if (ctx.event().getClick() == ClickType.SHIFT_LEFT) {
-                        item.setAmount(64);
-                    }
-                    player.getInventory().addItem(item);
-                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "purchase.noEconomy", msg ->
-                            msg.replaceText(builder -> builder.matchLiteral("{amount}").replacement(String.valueOf(item.getAmount())))
-                                    .replaceText(builder -> builder.matchLiteral("{name}").replacement(head.getName()))
-                    );
+                    ItemFactoryRegistry.get().giveItem((Player) ctx.event().getWhoClicked(), plugin.getCfg().getOmit(), item);
+                    plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "purchase.noEconomy", msg -> msg.replaceText(builder -> builder.matchLiteral("{amount}").replacement(String.valueOf(item.getAmount()))).replaceText(builder -> builder.matchLiteral("{name}").replacement(head.getName())));
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("head.take"));
                 }
             }));
         }

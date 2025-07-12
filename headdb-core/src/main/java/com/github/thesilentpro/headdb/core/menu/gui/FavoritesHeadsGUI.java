@@ -5,9 +5,9 @@ import com.github.thesilentpro.grim.gui.PaginatedGUI;
 import com.github.thesilentpro.grim.page.Page;
 import com.github.thesilentpro.headdb.api.model.Head;
 import com.github.thesilentpro.headdb.core.HeadDB;
-import com.github.thesilentpro.headdb.core.menu.HybridHeadsMenu;
-import com.github.thesilentpro.headdb.core.util.Utils;
+import com.github.thesilentpro.headdb.core.menu.FavoritesHeadsMenu;
 import com.github.thesilentpro.headdb.core.util.Compatibility;
+import com.github.thesilentpro.headdb.core.util.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -20,9 +20,9 @@ import org.bukkit.inventory.ItemStack;
 import java.util.Collections;
 import java.util.List;
 
-public class HybridHeadsGUI extends PaginatedGUI {
+public class FavoritesHeadsGUI extends PaginatedGUI {
 
-    public HybridHeadsGUI(HeadDB plugin, String key, Component title, List<Head> heads, List<ItemStack> items) {
+    public FavoritesHeadsGUI(HeadDB plugin, String key, Component title, List<Head> heads, List<ItemStack> items) {
         super(new NamespacedKey(plugin, "gui_" + key));
 
         int pageSize = plugin.getCfg().getHeadsMenuRows() * 9;
@@ -34,7 +34,7 @@ public class HybridHeadsGUI extends PaginatedGUI {
             List<Head> headsChunk = pageIndex < headChunks.size() ? headChunks.get(pageIndex) : Collections.emptyList();
             List<ItemStack> itemsChunk = pageIndex < itemChunks.size() ? itemChunks.get(pageIndex) : Collections.emptyList();
 
-            HybridHeadsMenu page = new HybridHeadsMenu(plugin, this, title, headsChunk, itemsChunk);
+            FavoritesHeadsMenu page = new FavoritesHeadsMenu(plugin, this, title, headsChunk, itemsChunk);
 
             // Divider
             if (plugin.getCfg().isHeadsMenuDividerEnabled()) {
@@ -157,9 +157,16 @@ public class HybridHeadsGUI extends PaginatedGUI {
                 ));
 
         setControls(
-                new SimpleButton(backItem),
-                new SimpleButton(pageInfoItem, ctx -> plugin.getMenuManager().getMainMenu().open((Player) ctx.event().getWhoClicked())),
-                new SimpleButton(nextItem),
+                new SimpleButton(backItem, ctx -> {
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("control.back"));
+                }),
+                new SimpleButton(pageInfoItem, ctx -> {
+                    plugin.getMenuManager().getMainMenu().open((Player) ctx.event().getWhoClicked());
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("control.info"));
+                }),
+                new SimpleButton(nextItem, ctx -> {
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("control.next"));
+                }),
                 true
         );
 

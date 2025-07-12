@@ -5,6 +5,7 @@ import com.github.thesilentpro.grim.gui.GUI;
 import com.github.thesilentpro.grim.page.PaginatedSimplePage;
 import com.github.thesilentpro.headdb.core.HeadDB;
 import com.github.thesilentpro.headdb.core.config.CustomCategory;
+import com.github.thesilentpro.headdb.core.util.Compatibility;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -24,15 +25,18 @@ public class CustomCategoriesMenu extends PaginatedSimplePage {
                 }
 
                 if (!category.isEnabled()) {
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("menu.disabled"));
                     return;
                 }
 
                 if (!ctx.event().getWhoClicked().hasPermission("headdb.category." + category)) {
                     plugin.getLocalization().sendMessage(ctx.event().getWhoClicked(), "noPermission");
+                    Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("noPermission"));
                     return;
                 }
 
                 plugin.getMenuManager().get(category.getIdentifier()).open((Player) ctx.event().getWhoClicked());
+                Compatibility.playSound((Player) ctx.event().getWhoClicked(), plugin.getSoundConfig().get("menu.open"));
             }));
         }
         reRender();
