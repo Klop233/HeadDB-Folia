@@ -38,7 +38,8 @@ public class Compatibility {
         if (IS_PAPER) {
             return plugin.getServer().getScheduler().getMainThreadExecutor(plugin);
         } else {
-            return r -> plugin.getServer().getScheduler().runTask(plugin, r);
+            // return r -> plugin.getServer().getGlobalRegionScheduler().run(plugin, r);
+            return r -> plugin.getServer().getGlobalRegionScheduler().run(plugin, (t) -> r.run());
         }
     }
 
